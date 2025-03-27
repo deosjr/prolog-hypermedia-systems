@@ -1,5 +1,7 @@
 :- use_module(library(http/http_server)).
 
+:- ['contacts'].
+
 :- initialization
     http_server([port(8080)]).
 
@@ -11,28 +13,42 @@
 contacts(Request) :-
     http_parameters(Request, [ q(Search, [optional(true)]) ]),
     ( var(Search) -> 
-        Contacts='todo findall'
+        all_contacts(Contacts)
         ;
-        Contacts='todo search'
+        search_contacts(Search, Contacts)
     ),
-    layout_head_template(Head),
+    phrase(layout_head_template, Head),
     index_template(Contacts, Body),
     reply_html_page(Head, Body).
 
 %% templates
 
-layout_head_template([
+layout_head_template --> [
     title('Contact App'),
     link([rel(stylesheet), href("https://the.missing.style/v0.2.0/missing.min.css")]),
     script([src("https://unpkg.com/htmx.org@1.8.0")], [])
-]).
+].
 
-layout_template(Content) --> 
+layout_body_template(Content) --> 
     [header([h1([div('CONTACTS.APP'), div('A Demo Contacts Application')])])], Content.
 
 index_template(Contacts, [main(Out)]) :-
+    maplist(contactrow, Contacts, Rows),
+    Table = table([],[
+        thead([
+            tr([
+                th('First'),
+                th('Last'),
+                th('Phone'),
+                th('Email')
+            ])
+        ]),
+        tbody(Rows)
+    ]),
     Content = [
-        h2('Contacts'),
-        div(Contacts)
+        Table
     ],
-    phrase(layout_template(Content), Out).
+    phrase(layout_body_template(Content), Out).
+
+contactrow(c(_, First, Last, Phone, Email), Row) :-
+    Row = tr([ td(First), td(Last), td(Phone), td(Email) ]).
