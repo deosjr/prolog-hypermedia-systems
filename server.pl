@@ -11,6 +11,10 @@
                 []).
 :- http_handler(root(contacts), contacts, []).
 
+http:location(contacts, root(contacts), []).
+
+:- http_handler(contacts(new), contacts_new(Method), [method(Method), methods([get,post])]).
+
 contacts(Request) :-
     http_parameters(Request, [ q(Search, [default('')]) ]),
     ( Search == '' -> 
@@ -21,6 +25,14 @@ contacts(Request) :-
     phrase(layout_head_template, Head),
     index_template(Search, Contacts, Body),
     reply_html_page(Head, Body).
+
+contacts_new(get, _) :-
+    phrase(layout_head_template, Head),
+    new_template(c(_, '', '', '', ''), Body),
+    reply_html_page(Head, Body).
+
+contacts_new(post, _) :-
+    reply_html_page(h1("todo"), []).
 
 %% templates
 
@@ -39,7 +51,7 @@ index_template(Q, Contacts, [main(Out)]) :-
         input([id(search), type(search), name(q), value(Q)], []),
         input([type(submit), value("Search")], [])
     ]),
-    maplist(contactrow, Contacts, Rows),
+    maplist(contact_row, Contacts, Rows),
     Table = table([],[
         thead([
             tr([
@@ -53,11 +65,12 @@ index_template(Q, Contacts, [main(Out)]) :-
     ]),
     Content = [
         Form,
-        Table
+        Table,
+        p(a(href("/contacts/new"), "Add Contact"))
     ],
     phrase(layout_body_template(Content), Out).
 
-contactrow(c(ID, First, Last, Phone, Email), Row) :-
+contact_row(c(ID, First, Last, Phone, Email), Row) :-
     phrase(("/contacts/", integer(ID)), ViewCodes),
     string_codes(ViewLink, ViewCodes),
     phrase(("/contacts/", integer(ID), "/edit"), EditCodes),
@@ -65,3 +78,33 @@ contactrow(c(ID, First, Last, Phone, Email), Row) :-
     Edit = td(a(href(EditLink), "Edit")),
     View = td(a(href(ViewLink), "View")),
     Row = tr([ td(First), td(Last), td(Phone), td(Email), Edit, View ]).
+
+new_template(Contact, [main(Out)]) :-
+    Contact = c(_, First, Last, Phone, Email),
+    Form = form([action('/contacts/new'), method(post)], [
+        fieldset([
+            legend("Contact Values"),
+            p([
+                label([for(email)], ["Email"]),
+                input([name(email), id(email), type(email), placeholder("Email"), value(Email)], [])
+            ]),
+            p([
+                label([for(first_name)], ["First Name"]),
+                input([name(first_name), id(first_name), type(first_name), placeholder("First Name"), value(First)], [])
+            ]),
+            p([
+                label([for(last_name)], ["Last Name"]),
+                input([name(last_name), id(last_name), type(last_name), placeholder("Last Name"), value(Last)], [])
+            ]),
+            p([
+                label([for(phone)], ["Phone"]),
+                input([name(phone), id(phone), type(phone), placeholder("Phone"), value(Phone)], [])
+            ]),
+            button('Save')
+        ])
+    ]),
+    Content = [
+        Form,
+        p(a(href("/contacts"), "Back"))
+    ],
+    phrase(layout_body_template(Content), Out).
