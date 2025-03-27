@@ -1,3 +1,5 @@
+:- dynamic(contacts/5).
+
 all_contacts(All) :-
     findall(c(ID,FirstName,LastName,PhoneNumber,Email), contacts(ID, FirstName, LastName, PhoneNumber, Email), All).
 
@@ -15,6 +17,13 @@ match(Term, _, _, Phone, _) :-
     sub_string(Phone, _, _, _, Term), !.
 match(Term, _, _, _, Email) :-
     sub_string(Email, _, _, _, Term), !.
+
+% todo: any form of input validation
+save_contact(First, Last, Phone, Email) :-
+    findall(ID, contacts(ID,_,_,_,_), IDs),
+    max_list(IDs, Max),
+    New is Max + 1,
+    assertz(contacts(New, First, Last, Phone, Email)).
 
 contacts(2, "Carson", "Gross", "123-456-7890", "carson@example.comz").
 contacts(3, "", "", "", "joe@example2.com").

@@ -1,4 +1,5 @@
 :- use_module(library(http/http_server)).
+:- use_module(library(http/http_client)).
 :- use_module(library(dcg/basics)).
 
 :- ['contacts'].
@@ -31,8 +32,13 @@ contacts_new(get, _) :-
     new_template(c(_, '', '', '', ''), Body),
     reply_html_page(Head, Body).
 
-contacts_new(post, _) :-
-    reply_html_page(h1("todo"), []).
+contacts_new(post, Request) :-
+    http_parameters(Request, [ first_name(First, []), last_name(Last, []), phone(Phone, []), email(Email, []) ]), 
+    ( save_contact(First, Last, Phone, Email) ->
+        http_redirect(see_other, location_by_id(contacts), Request)
+    ;   phrase(layout_head_template, Head),
+        new_remplate(c(_,First,Last,Phone,Email), Body),
+        reply_html_page(Head, Body)).
 
 %% templates
 
