@@ -1,4 +1,5 @@
 :- use_module(library(http/http_server)).
+:- use_module(library(dcg/basics)).
 
 :- ['contacts'].
 
@@ -11,14 +12,14 @@
 :- http_handler(root(contacts), contacts, []).
 
 contacts(Request) :-
-    http_parameters(Request, [ q(Search, [optional(true)]) ]),
-    ( var(Search) -> 
+    http_parameters(Request, [ q(Search, [default('')]) ]),
+    ( Search == '' -> 
         all_contacts(Contacts)
         ;
         search_contacts(Search, Contacts)
     ),
     phrase(layout_head_template, Head),
-    index_template(Contacts, Body),
+    index_template(Search, Contacts, Body),
     reply_html_page(Head, Body).
 
 %% templates
@@ -32,7 +33,12 @@ layout_head_template --> [
 layout_body_template(Content) --> 
     [header([h1([div('CONTACTS.APP'), div('A Demo Contacts Application')])])], Content.
 
-index_template(Contacts, [main(Out)]) :-
+index_template(Q, Contacts, [main(Out)]) :-
+    Form = form([action('/contacts'), method(get), class('tool-bar')],[
+        label([for(search)], ["Search Term"]),
+        input([id(search), type(search), name(q), value(Q)], []),
+        input([type(submit), value("Search")], [])
+    ]),
     maplist(contactrow, Contacts, Rows),
     Table = table([],[
         thead([
@@ -46,9 +52,16 @@ index_template(Contacts, [main(Out)]) :-
         tbody(Rows)
     ]),
     Content = [
+        Form,
         Table
     ],
     phrase(layout_body_template(Content), Out).
 
-contactrow(c(_, First, Last, Phone, Email), Row) :-
-    Row = tr([ td(First), td(Last), td(Phone), td(Email) ]).
+contactrow(c(ID, First, Last, Phone, Email), Row) :-
+    phrase(("/contacts/", integer(ID)), ViewCodes),
+    string_codes(ViewLink, ViewCodes),
+    phrase(("/contacts/", integer(ID), "/edit"), EditCodes),
+    string_codes(EditLink, EditCodes),
+    Edit = td(a(href(EditLink), "Edit")),
+    View = td(a(href(ViewLink), "View")),
+    Row = tr([ td(First), td(Last), td(Phone), td(Email), Edit, View ]).
