@@ -18,13 +18,10 @@ http:location(contacts, root(contacts), []).
     contacts_new(Method), [method(Method), methods([get,post])]).
 
 :- http_handler(root(contacts/ID),
-    contacts_show(ID), [methods([get])]).
+    contacts_id(Method, ID), [method(Method), methods([get,delete])]).
 
 :- http_handler(contacts(ID/edit),
     contacts_edit(Method, ID), [method(Method), methods([get,post])]).
-
-:- http_handler(contacts(ID/delete),
-    contacts_delete(ID), [methods([post])]).
 
 contacts(Request) :-
     http_parameters(Request, [ q(Search, [default('')]) ]),
@@ -50,7 +47,13 @@ contacts_new(post, Request) :-
         new_template(c(_,First,Last,Phone,Email), Body),
         reply_html_page(Head, Body)).
 
-contacts_show(IDAtom, Request) :- 
+contacts_id(get, IDAtom, Request) :- 
+    contacts_show(IDAtom, Request).
+
+contacts_id(delete, IDAtom, Request) :-
+    contacts_delete(IDAtom, Request).
+
+contacts_show(IDAtom, Request) :-
     ( atom_number(IDAtom, ID) ->
     ( contacts(ID, First, Last, Phone, Email) ->
         phrase(layout_head_template, Head),
@@ -203,10 +206,14 @@ edit_template(Contact, Out) :-
             button('Save')
         ])
     ]),
-    create_url(("/contacts/", integer(ID), "/delete"), DeleteLink),
+    create_url(("/contacts/", integer(ID)), DeleteLink),
     Content = [
         Form,
-        form([action(DeleteLink), method(post)], [button('Delete Contact')]),
+        button(['hx-delete'(DeleteLink),
+                'hx-target'(body),
+                'hx-push-url'(true),
+                'hx-confirm'("Are you sure you want to delete this contact?")],
+                'Delete Contact'),
         p(a(href("/contacts"), "Back"))
     ],
     layout_template(Content, Out).
