@@ -95,7 +95,12 @@ layout_head_template --> [
 layout_body_template(Content) --> 
     [header([h1([div('CONTACTS.APP'), div('A Demo Contacts Application')])])], Content.
 
-index_template(Q, Contacts, [main(Out)]) :-
+% NOTE we do not have access to body div directly, it is added by reply_html_page
+layout_template(Content, Body) :-
+    phrase(layout_body_template(Content), Out),
+    Body = [main('hx-boost'(true), Out)].
+
+index_template(Q, Contacts, Out) :-
     Form = form([action('/contacts'), method(get), class('tool-bar')],[
         label([for(search)], ["Search Term"]),
         input([id(search), type(search), name(q), value(Q)], []),
@@ -118,18 +123,16 @@ index_template(Q, Contacts, [main(Out)]) :-
         Table,
         p(a(href("/contacts/new"), "Add Contact"))
     ],
-    phrase(layout_body_template(Content), Out).
+    layout_template(Content, Out).
 
 contact_row(c(ID, First, Last, Phone, Email), Row) :-
-    phrase(("/contacts/", integer(ID)), ViewCodes),
-    string_codes(ViewLink, ViewCodes),
-    phrase(("/contacts/", integer(ID), "/edit"), EditCodes),
-    string_codes(EditLink, EditCodes),
+    create_url(("/contacts/", integer(ID)), ViewLink),
+    create_url(("/contacts/", integer(ID), "/edit"), EditLink),
     Edit = td(a(href(EditLink), "Edit")),
     View = td(a(href(ViewLink), "View")),
     Row = tr([ td(First), td(Last), td(Phone), td(Email), Edit, View ]).
 
-new_template(Contact, [main(Out)]) :-
+new_template(Contact, Out) :-
     Contact = c(_, First, Last, Phone, Email),
     Form = form([action('/contacts/new'), method(post)], [
         fieldset([
@@ -157,12 +160,11 @@ new_template(Contact, [main(Out)]) :-
         Form,
         p(a(href("/contacts"), "Back"))
     ],
-    phrase(layout_body_template(Content), Out).
+    layout_template(Content, Out).
 
-show_template(Contact, [main(Out)]) :-
+show_template(Contact, Out) :-
     Contact = c(ID, First, Last, Phone, Email),
-    phrase(("/contacts/", integer(ID), "/edit"), EditCodes),
-    string_codes(EditLink, EditCodes),
+    create_url(("/contacts/", integer(ID), "/edit"), EditLink),
     Content = [
         h1([First, Last]),
         div([
@@ -174,12 +176,11 @@ show_template(Contact, [main(Out)]) :-
             a(href("contacts"), "Back")
         ])
     ],
-    phrase(layout_body_template(Content), Out).
+    layout_template(Content, Out).
 
-edit_template(Contact, [main(Out)]) :-
+edit_template(Contact, Out) :-
     Contact = c(ID, First, Last, Phone, Email),
-    phrase(("/contacts/", integer(ID), "/edit"), EditCodes),
-    string_codes(EditLink, EditCodes),
+    create_url(("/contacts/", integer(ID), "/edit"), EditLink),
     Form = form([action(EditLink), method(post)], [
         fieldset([
             legend("Contact Values"),
@@ -202,12 +203,14 @@ edit_template(Contact, [main(Out)]) :-
             button('Save')
         ])
     ]),
-    phrase(("/contacts/", integer(ID), "/delete"), DeleteCodes),
-    string_codes(DeleteLink, DeleteCodes),
+    create_url(("/contacts/", integer(ID), "/delete"), DeleteLink),
     Content = [
         Form,
         form([action(DeleteLink), method(post)], [button('Delete Contact')]),
         p(a(href("/contacts"), "Back"))
     ],
-    phrase(layout_body_template(Content), Out).
+    layout_template(Content, Out).
 
+create_url(PhraseBody, URL) :-
+    phrase(PhraseBody, Codes),
+    string_codes(URL, Codes).
