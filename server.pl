@@ -14,7 +14,11 @@
 
 http:location(contacts, root(contacts), []).
 
-:- http_handler(contacts(new), contacts_new(Method), [method(Method), methods([get,post])]).
+:- http_handler(contacts(new),
+    contacts_new(Method), [method(Method), methods([get,post])]).
+
+:- http_handler(root(contacts/ID),
+    contact(Method, ID), [method(Method), methods([get])]).
 
 contacts(Request) :-
     http_parameters(Request, [ q(Search, [default('')]) ]),
@@ -37,8 +41,17 @@ contacts_new(post, Request) :-
     ( save_contact(First, Last, Phone, Email) ->
         http_redirect(see_other, location_by_id(contacts), Request)
     ;   phrase(layout_head_template, Head),
-        new_remplate(c(_,First,Last,Phone,Email), Body),
+        new_template(c(_,First,Last,Phone,Email), Body),
         reply_html_page(Head, Body)).
+
+contact(get, IDAtom, Request) :- 
+    ( atom_number(IDAtom, ID) ->
+    ( contacts(ID, First, Last, Phone, Email) ->
+        phrase(layout_head_template, Head),
+        show_template(c(ID, First, Last, Phone, Email), Body),
+        reply_html_page(Head, Body)
+    ;   http_404([index(location_by_id(contacts))], Request))
+    ;   http_404([index(location_by_id(contacts))], Request)).
 
 %% templates
 
@@ -112,5 +125,22 @@ new_template(Contact, [main(Out)]) :-
     Content = [
         Form,
         p(a(href("/contacts"), "Back"))
+    ],
+    phrase(layout_body_template(Content), Out).
+
+show_template(Contact, [main(Out)]) :-
+    Contact = c(ID, First, Last, Phone, Email),
+    phrase(("/contacts/", integer(ID), "/edit"), EditCodes),
+    string_codes(EditLink, EditCodes),
+    Content = [
+        h1([First, Last]),
+        div([
+            div(["Phone: ", Phone]),
+            div(["Email: ", Email])
+        ]),
+        p([
+            a(href(EditLink), "Edit"),
+            a(href("contacts"), "Back")
+        ])
     ],
     phrase(layout_body_template(Content), Out).
