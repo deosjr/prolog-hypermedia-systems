@@ -25,6 +25,13 @@ save_contact(First, Last, Phone, Email) :-
     New is Max + 1,
     assertz(contacts(New, First, Last, Phone, Email)).
 
+update_contact(ID, First, Last, Phone, Email) :-
+    retract(contacts(ID, _, _, _, _)),
+    assertz(contacts(ID, First, Last, Phone, Email)).
+
+delete_contact(ID) :-
+    retract(contacts(ID, _, _, _, _)).
+
 contacts(2, "Carson", "Gross", "123-456-7890", "carson@example.comz").
 contacts(3, "", "", "", "joe@example2.com").
 contacts(5, "Joe", "Blow", "123-456-7890", "joe@example.com").

@@ -18,7 +18,13 @@ http:location(contacts, root(contacts), []).
     contacts_new(Method), [method(Method), methods([get,post])]).
 
 :- http_handler(root(contacts/ID),
-    contact(Method, ID), [method(Method), methods([get])]).
+    contacts_show(ID), [methods([get])]).
+
+:- http_handler(contacts(ID/edit),
+    contacts_edit(Method, ID), [method(Method), methods([get,post])]).
+
+:- http_handler(contacts(ID/delete),
+    contacts_delete(ID), [methods([post])]).
 
 contacts(Request) :-
     http_parameters(Request, [ q(Search, [default('')]) ]),
@@ -44,13 +50,38 @@ contacts_new(post, Request) :-
         new_template(c(_,First,Last,Phone,Email), Body),
         reply_html_page(Head, Body)).
 
-contact(get, IDAtom, Request) :- 
+contacts_show(IDAtom, Request) :- 
     ( atom_number(IDAtom, ID) ->
     ( contacts(ID, First, Last, Phone, Email) ->
         phrase(layout_head_template, Head),
         show_template(c(ID, First, Last, Phone, Email), Body),
         reply_html_page(Head, Body)
     ;   http_404([index(location_by_id(contacts))], Request))
+    ;   http_404([index(location_by_id(contacts))], Request)).
+
+contacts_edit(get, IDAtom, Request) :-
+    ( atom_number(IDAtom, ID) ->
+    ( contacts(ID, First, Last, Phone, Email) ->
+        phrase(layout_head_template, Head),
+        edit_template(c(ID, First, Last, Phone, Email), Body),
+        reply_html_page(Head, Body)
+    ;   http_404([index(location_by_id(contacts))], Request))
+    ;   http_404([index(location_by_id(contacts))], Request)).
+
+contacts_edit(post, IDAtom, Request) :-
+    ( atom_number(IDAtom, ID) ->
+    http_parameters(Request, [ first_name(First, []), last_name(Last, []), phone(Phone, []), email(Email, []) ]), 
+    ( update_contact(ID, First, Last, Phone, Email) ->
+        http_redirect(see_other, location_by_id(contacts(ID)), Request)
+    ;   phrase(layout_head_template, Head),
+        edit_template(c(ID,First,Last,Phone,Email), Body),
+        reply_html_page(Head, Body))
+    ;   http_404([index(location_by_id(contacts))], Request)).
+
+contacts_delete(IDAtom, Request) :-
+    ( atom_number(IDAtom, ID) ->
+        delete_contact(ID),
+        http_redirect(see_other, location_by_id(contacts), Request)
     ;   http_404([index(location_by_id(contacts))], Request)).
 
 %% templates
@@ -144,3 +175,39 @@ show_template(Contact, [main(Out)]) :-
         ])
     ],
     phrase(layout_body_template(Content), Out).
+
+edit_template(Contact, [main(Out)]) :-
+    Contact = c(ID, First, Last, Phone, Email),
+    phrase(("/contacts/", integer(ID), "/edit"), EditCodes),
+    string_codes(EditLink, EditCodes),
+    Form = form([action(EditLink), method(post)], [
+        fieldset([
+            legend("Contact Values"),
+            p([
+                label([for(email)], ["Email"]),
+                input([name(email), id(email), type(email), placeholder("Email"), value(Email)], [])
+            ]),
+            p([
+                label([for(first_name)], ["First Name"]),
+                input([name(first_name), id(first_name), type(first_name), placeholder("First Name"), value(First)], [])
+            ]),
+            p([
+                label([for(last_name)], ["Last Name"]),
+                input([name(last_name), id(last_name), type(last_name), placeholder("Last Name"), value(Last)], [])
+            ]),
+            p([
+                label([for(phone)], ["Phone"]),
+                input([name(phone), id(phone), type(phone), placeholder("Phone"), value(Phone)], [])
+            ]),
+            button('Save')
+        ])
+    ]),
+    phrase(("/contacts/", integer(ID), "/delete"), DeleteCodes),
+    string_codes(DeleteLink, DeleteCodes),
+    Content = [
+        Form,
+        form([action(DeleteLink), method(post)], [button('Delete Contact')]),
+        p(a(href("/contacts"), "Back"))
+    ],
+    phrase(layout_body_template(Content), Out).
+
