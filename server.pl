@@ -1,5 +1,6 @@
 :- use_module(library(http/http_server)).
 :- use_module(library(http/http_client)).
+:- use_module(library(http/html_write)).
 :- use_module(library(dcg/basics)).
 
 :- ['contacts'].
@@ -23,6 +24,9 @@ http:location(contacts, root(contacts), []).
 :- http_handler(contacts(ID/edit),
     contacts_edit(Method, ID), [method(Method), methods([get,post])]).
 
+:- http_handler(contacts(ID/email),
+    contacts_email(ID), [methods([get])]).
+
 contacts(Request) :-
     http_parameters(Request, [ q(Search, [default('')]) ]),
     ( Search == '' -> 
@@ -36,7 +40,7 @@ contacts(Request) :-
 
 contacts_new(get, _) :-
     phrase(layout_head_template, Head),
-    new_template(c(_, '', '', '', ''), [], Body),
+    new_template(c(0, '', '', '', ''), [], Body),
     reply_html_page(Head, Body).
 
 contacts_new(post, Request) :-
@@ -81,6 +85,14 @@ contacts_edit(post, IDAtom, Request) :-
     ;   phrase(layout_head_template, Head),
         edit_template(c(ID,First,Last,Phone,Email), Errors, Body),
         reply_html_page(Head, Body))
+    ;   http_404([index(location_by_id(contacts))], Request)).
+
+contacts_email(IDAtom, Request) :-
+    ( atom_number(IDAtom, ID) ->
+        http_parameters(Request, [ email(Email, [default('')]) ]),
+        validate_contact(ID, _, _, _, Email, Errors),
+        %reply_html_page([], Errors)
+        reply_html_partial(Errors)
     ;   http_404([index(location_by_id(contacts))], Request)).
 
 contacts_delete(IDAtom, Request) :-
@@ -138,13 +150,18 @@ contact_row(c(ID, First, Last, Phone, Email), Row) :-
     Row = tr([ td(First), td(Last), td(Phone), td(Email), Edit, View ]).
 
 new_template(Contact, Errors, Out) :-
-    Contact = c(_, First, Last, Phone, Email),
+    Contact = c(ID, First, Last, Phone, Email),
+    create_url(("/contacts/", integer(ID), "/email"), EmailLink),
     Form = form([action('/contacts/new'), method(post)], [
         fieldset([
             legend("Contact Values"),
             p([
                 label([for(email)], ["Email"]),
-                input([name(email), id(email), type(email), placeholder("Email"), value(Email)], []),
+                input([name(email), id(email), type(email),
+                    'hx-get'(EmailLink),
+                    'hx-target'("next .error"),
+                    'hx-trigger'("change, keyup delay:200ms changed"),
+                    placeholder("Email"), value(Email)], []),
                 span([class(error)], Errors)
             ]),
             p([
@@ -187,12 +204,17 @@ show_template(Contact, Out) :-
 edit_template(Contact, Errors, Out) :-
     Contact = c(ID, First, Last, Phone, Email),
     create_url(("/contacts/", integer(ID), "/edit"), EditLink),
+    create_url(("/contacts/", integer(ID), "/email"), EmailLink),
     Form = form([action(EditLink), method(post)], [
         fieldset([
             legend("Contact Values"),
             p([
                 label([for(email)], ["Email"]),
-                input([name(email), id(email), type(email), placeholder("Email"), value(Email)], []),
+                input([name(email), id(email), type(email),
+                    'hx-get'(EmailLink),
+                    'hx-target'("next .error"),
+                    'hx-trigger'("change, keyup delay:200ms changed"),
+                    placeholder("Email"), value(Email)], []),
                 span([class(error)], Errors)
             ]),
             p([
