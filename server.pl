@@ -36,15 +36,16 @@ contacts(Request) :-
 
 contacts_new(get, _) :-
     phrase(layout_head_template, Head),
-    new_template(c(_, '', '', '', ''), Body),
+    new_template(c(_, '', '', '', ''), [], Body),
     reply_html_page(Head, Body).
 
 contacts_new(post, Request) :-
-    http_parameters(Request, [ first_name(First, []), last_name(Last, []), phone(Phone, []), email(Email, []) ]), 
-    ( save_contact(First, Last, Phone, Email) ->
+    http_parameters(Request, [ first_name(First, []), last_name(Last, []), phone(Phone, []), email(Email, [default('')]) ]), 
+    save_contact(First, Last, Phone, Email, Errors),
+    ( Errors == [] ->
         http_redirect(see_other, location_by_id(contacts), Request)
     ;   phrase(layout_head_template, Head),
-        new_template(c(_,First,Last,Phone,Email), Body),
+        new_template(c(_,First,Last,Phone,Email), Errors, Body),
         reply_html_page(Head, Body)).
 
 contacts_id(get, IDAtom, Request) :- 
@@ -66,18 +67,19 @@ contacts_edit(get, IDAtom, Request) :-
     ( atom_number(IDAtom, ID) ->
     ( contacts(ID, First, Last, Phone, Email) ->
         phrase(layout_head_template, Head),
-        edit_template(c(ID, First, Last, Phone, Email), Body),
+        edit_template(c(ID, First, Last, Phone, Email), [], Body),
         reply_html_page(Head, Body)
     ;   http_404([index(location_by_id(contacts))], Request))
     ;   http_404([index(location_by_id(contacts))], Request)).
 
 contacts_edit(post, IDAtom, Request) :-
     ( atom_number(IDAtom, ID) ->
-    http_parameters(Request, [ first_name(First, []), last_name(Last, []), phone(Phone, []), email(Email, []) ]), 
-    ( update_contact(ID, First, Last, Phone, Email) ->
+    http_parameters(Request, [ first_name(First, []), last_name(Last, []), phone(Phone, []), email(Email, [default('')]) ]), 
+    update_contact(ID, First, Last, Phone, Email, Errors),
+    ( Errors == [] ->
         http_redirect(see_other, location_by_id(contacts(ID)), Request)
     ;   phrase(layout_head_template, Head),
-        edit_template(c(ID,First,Last,Phone,Email), Body),
+        edit_template(c(ID,First,Last,Phone,Email), Errors, Body),
         reply_html_page(Head, Body))
     ;   http_404([index(location_by_id(contacts))], Request)).
 
@@ -135,14 +137,15 @@ contact_row(c(ID, First, Last, Phone, Email), Row) :-
     View = td(a(href(ViewLink), "View")),
     Row = tr([ td(First), td(Last), td(Phone), td(Email), Edit, View ]).
 
-new_template(Contact, Out) :-
+new_template(Contact, Errors, Out) :-
     Contact = c(_, First, Last, Phone, Email),
     Form = form([action('/contacts/new'), method(post)], [
         fieldset([
             legend("Contact Values"),
             p([
                 label([for(email)], ["Email"]),
-                input([name(email), id(email), type(email), placeholder("Email"), value(Email)], [])
+                input([name(email), id(email), type(email), placeholder("Email"), value(Email)], []),
+                span([class(error)], Errors)
             ]),
             p([
                 label([for(first_name)], ["First Name"]),
@@ -181,7 +184,7 @@ show_template(Contact, Out) :-
     ],
     layout_template(Content, Out).
 
-edit_template(Contact, Out) :-
+edit_template(Contact, Errors, Out) :-
     Contact = c(ID, First, Last, Phone, Email),
     create_url(("/contacts/", integer(ID), "/edit"), EditLink),
     Form = form([action(EditLink), method(post)], [
@@ -189,7 +192,8 @@ edit_template(Contact, Out) :-
             legend("Contact Values"),
             p([
                 label([for(email)], ["Email"]),
-                input([name(email), id(email), type(email), placeholder("Email"), value(Email)], [])
+                input([name(email), id(email), type(email), placeholder("Email"), value(Email)], []),
+                span([class(error)], Errors)
             ]),
             p([
                 label([for(first_name)], ["First Name"]),
